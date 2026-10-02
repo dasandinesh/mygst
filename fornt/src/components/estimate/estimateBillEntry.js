@@ -6,6 +6,7 @@ import { buildEstimateDocumentHtml, PAPER_WINDOW } from './estimateBillTemplate'
 import { useEntryShortcuts, fetchLatest, ShortcutHint } from '../common/entryShortcuts';
 import { formatDate } from '../../dateFormat';
 import { getActiveSetting, withLogo } from '../../shopSettings';
+import { getPrintSettings, showFor, EMPTY_PRINT_SETTINGS } from '../../printSettings';
 
 const todayString = () => {
   const now = new Date();
@@ -52,6 +53,9 @@ const EstimateBillEntry = () => {
   const [customerList, setCustomerList] = useState([]);
   const [productList, setProductList] = useState([]);
   const [invoiceSetting, setInvoiceSetting] = useState(null);
+  // Default roll size (3 / 4 inch) and hidden details per template — Master → Print templates.
+  const [printSettings, setPrintSettings] = useState(EMPTY_PRINT_SETTINGS);
+  useEffect(() => { getPrintSettings().then(setPrintSettings).catch(() => {}); }, []);
 
   const [customer, setCustomer] = useState(emptyCustomer);
   const [billMeta, setBillMeta] = useState(emptyBillMeta);
@@ -280,15 +284,17 @@ const EstimateBillEntry = () => {
   // blockers don't catch it) and fills it in once the estimate HTML is built;
   // the template's own onload triggers window.print().
   // `billOrLoader`: an estimate, or an async function that fetches one (Ctrl+P "print last").
-  const printBill = async (billOrLoader, size = 'A4') => {
-    const { width, height } = PAPER_WINDOW[size] || PAPER_WINDOW.A4;
+  // `size`: 'EA4' / 'EA5' (A4 / A5) or 'IN4' / 'IN3' (4 / 3 inch roll); left out = the default (Master → Print templates).
+  const printBill = async (billOrLoader, size) => {
+    const chosen = size || printSettings.estimateDefault;
+    const { width, height } = PAPER_WINDOW[chosen] || PAPER_WINDOW.IN3;
     const win = window.open('', '_blank', `width=${width},height=${height}`);
     if (!win) { alert('Please allow popups to print the estimate.'); return; }
     win.document.write('<p style="font-family:sans-serif;padding:20px;">Preparing estimate…</p>');
     try {
       const bill = typeof billOrLoader === 'function' ? await billOrLoader() : billOrLoader;
       const customerRecord = customerList.find((c) => c.name?.toLowerCase() === (bill.customer?.name || '').trim().toLowerCase());
-      const html = await buildEstimateDocumentHtml(bill, invoiceSetting || {}, customerRecord || null, size);
+      const html = await buildEstimateDocumentHtml(bill, invoiceSetting || {}, customerRecord || null, chosen, { show: showFor(printSettings, chosen) });
       win.document.open();
       win.document.write(html);
       win.document.close();
@@ -308,7 +314,7 @@ const EstimateBillEntry = () => {
     confirmNew: 'Discard this unsaved estimate and start a new one?',
     onNew: () => { setViewBill(null); resetForm(); setTimeout(() => customerNameRef.current?.focus(), 0); },
     onSave: () => { if (!viewBill) formRef.current?.requestSubmit(); },
-    onPrint: () => printBill(viewBill || loadLastEstimate, 'A4'),
+    onPrint: () => printBill(viewBill || loadLastEstimate),
     onOpenLast: () => loadLastEstimate().then(setViewBill).catch((error) => setSaveStatus({ type: 'error', text: error.message })),
   });
 
@@ -501,8 +507,10 @@ const EstimateBillEntry = () => {
               <div><span>Closing balance</span><strong>{money(viewBill.billDetails?.closingBalance)}</strong></div>
             </div>
             <div className="gst-view-actions">
-              <button type="button" onClick={() => printBill(viewBill, 'A4')}>Print A4</button>
-              <button type="button" onClick={() => printBill(viewBill, 'A5')}>Print A5</button>
+              <button type="button" onClick={() => printBill(viewBill, 'EA4')}>Print A4</button>
+              <button type="button" onClick={() => printBill(viewBill, 'EA5')}>Print A5</button>
+              <button type="button" onClick={() => printBill(viewBill, 'IN4')}>Print 4 inch</button>
+              <button type="button" onClick={() => printBill(viewBill, 'IN3')}>Print 3 inch</button>
               <button type="button" onClick={() => { loadBillForEdit(viewBill); setViewBill(null); }}>Edit this estimate</button>
               <button type="button" className="gst-delete-button" onClick={() => { deleteBill(viewBill); setViewBill(null); }}>Delete</button>
               <button type="button" onClick={() => setViewBill(null)}>Close</button>

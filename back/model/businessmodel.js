@@ -22,6 +22,8 @@ const businessSchema = new mongoose.Schema({
       showTransport: { type: Boolean, default: true },
       showPayment: { type: Boolean, default: true },
       showRemark: { type: Boolean, default: true },
+      showSeries: { type: Boolean, default: true },
+      showTaxType: { type: Boolean, default: true },
     },
     dcEntry: {
       showList: { type: Boolean, default: true },
@@ -34,6 +36,10 @@ const businessSchema = new mongoose.Schema({
       showRemark: { type: Boolean, default: true },
     },
   },
+  // Print templates (Master → Print templates): default A4/A5 for GST bills,
+  // 3/4 inch for estimates, and the details switched off per template —
+  // see controllers/preferencecontroller.js cleanPrint.
+  printSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Business', businessSchema);

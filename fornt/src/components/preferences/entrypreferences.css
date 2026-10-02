@@ -13,6 +13,29 @@
 .prefs-option strong { font-size: 14px; color: #1f4b3e; }
 .prefs-option small { font-size: 12px; color: #6b8079; }
 
+/* Print templates page: tabs, controls on the left, live preview on the right. */
+.print-templates-card { max-width: 1060px; }
+.print-tabs { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 14px; }
+.print-tabs > div { display: flex; align-items: center; gap: 6px; }
+.print-tabs-label { font-size: 12px; font-weight: 700; color: #3f5c52; text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
+.prefs-subtab { padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; color: #285749; background: #fff; border: 1px solid #9bb5ac; border-radius: 999px; cursor: pointer; }
+.prefs-subtab small { font-weight: 500; opacity: .8; }
+.prefs-subtab.is-active { color: #fff; background: #237553; border-color: #237553; }
+.print-layout { display: grid; grid-template-columns: minmax(280px, 1fr) auto; gap: 20px; align-items: start; }
+.print-preview { position: sticky; top: 12px; }
+.print-preview-head { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #6b8079; }
+.print-preview-frame { overflow: hidden; border: 1px solid #c5d6cf; border-radius: 6px; background: #fff; box-shadow: 0 6px 18px rgba(28, 63, 52, .10); }
+.print-preview-frame iframe { display: block; border: 0; transform-origin: 0 0; background: #fff; }
+.prefs-section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 4px 6px; color: #6b8079; }
+.prefs-bulk { display: flex; gap: 6px; flex: 0 0 auto; }
+.prefs-bulk button { padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 600; color: #285749; background: #fff; border: 1px solid #9bb5ac; border-radius: 6px; cursor: pointer; }
+.prefs-option.is-locked { cursor: default; opacity: .75; }
+.prefs-dirty { align-self: center; margin-right: 10px; font-size: 13px; color: #8a6d1f; }
+@media (max-width: 900px) {
+  .print-layout { grid-template-columns: 1fr; }
+  .print-preview { position: static; overflow-x: auto; }
+}
+
 .prefs-status { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; font-size: 13px; }
 .prefs-status.success { background: #e1f2e9; color: #15593e; }
 .prefs-status.error { background: #fde8e6; color: #9e2c25; }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchJson } from '../../api';
 import './entrypreferences.css';
 
@@ -15,6 +16,8 @@ const PAGES = [
       { key: 'showTransport', label: 'Show all Transport details', hint: 'Ticked: mode, vehicle type, vehicle no., transporter ID & name, LR no. / date, distance. Unticked: only Vehicle No and Transporter ID.' },
       { key: 'showPayment', label: 'Show Cash / Credit / Balance', hint: 'Cash received, credit and balance due beside the totals.' },
       { key: 'showRemark', label: 'Show Remark', hint: 'The remark box printed on the bill.' },
+      { key: 'showSeries', label: 'Show Series', hint: 'The bill series dropdown (only appears when you have 2 or more bill series). Off: every bill goes to the default series.' },
+      { key: 'showTaxType', label: 'Show Tax Type', hint: 'CGST + SGST or IGST. Off: it is still chosen automatically from your state and the place of supply.' },
     ],
   },
   {
@@ -72,6 +75,9 @@ const EntryPreferences = () => {
     <main className="prefs-page">
       <section className="prefs-card">
         <h2>Entry Settings</h2>
+        <p className="prefs-intro">
+          <Link to="/print-templates">🖨 Print templates →</Link> A4 / A5 for GST bills; A4, A5, 4 inch, 3 inch for estimates — with preview.
+        </p>
         <p className="prefs-intro">Choose which sections the entry pages show. Hidden sections only disappear from the screen; nothing already saved on a bill is removed.</p>
 
         {!prefs ? <p className="prefs-loading">{status.text || 'Loading…'}</p> : PAGES.map((page) => (

@@ -171,6 +171,17 @@
 /* Customer name, GSTIN, bill number, date, tax type and place of supply — all in one row. */
 /* Last column fits the Place of Supply input plus its "✎ Ship to" button. */
 .gst-bill-header-row { display: grid; grid-template-columns: minmax(300px, 1fr) 150px 80px 80px 80px 220px; gap: 10px; align-items: end; }
+/* GST bill page only: Series and Tax Type can be switched off (Entry Settings) and
+   Series only exists with 2+ bill series, so the field count varies. A wrapping
+   flex row keeps every field at its own width instead of sliding into the next
+   fixed grid column. Same widths as the grid above. */
+.gst-bill-header-row.gst-header-flex { display: flex; flex-wrap: wrap; align-items: flex-end; }
+.gst-header-flex > .gst-input-field { flex: 0 0 auto; }
+.gst-header-flex > .gst-hf-customer { flex: 1 1 300px; }
+.gst-header-flex > .gst-hf-gstin { width: 150px; }
+.gst-header-flex > .gst-hf-series { width: 140px; }
+.gst-header-flex > .gst-hf-taxtype { width: 80px; }
+.gst-header-flex > .gst-hf-pos { width: 220px; }
 .gst-bill-remark-row { margin-top: 10px; }
 
 /* Optional DC / buyer's PO references — a light panel under the header row so
@@ -241,6 +252,10 @@
 @media (max-width: 600px) {
   .gst-bill-header-row,
   .gst-bill-refs-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Phones: customer and place of supply take a full line, the short fields share one. */
+  .gst-header-flex > .gst-hf-customer,
+  .gst-header-flex > .gst-hf-pos { flex: 1 1 100%; width: auto; }
+  .gst-header-flex > .gst-input-field:not(.gst-hf-customer):not(.gst-hf-pos) { flex: 1 1 120px; width: auto; }
 }
 
 .gst-totals-row { display: grid; grid-template-columns: minmax(320px, 560px) 1fr; gap: 20px; align-items: start; }

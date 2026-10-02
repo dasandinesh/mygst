@@ -5,6 +5,7 @@ import '../sale/gstbilllist.css';
 import { buildEstimateDocumentHtml, PAPER_WINDOW } from './estimateBillTemplate';
 import { formatDate } from '../../dateFormat';
 import { getActiveSetting, withLogo } from '../../shopSettings';
+import { getPrintSettings, showFor, EMPTY_PRINT_SETTINGS } from '../../printSettings';
 
 const money = (value) => `₹${Number(value || 0).toFixed(2)}`;
 const displayDate = (value) => formatDate(value, '—');
@@ -17,6 +18,9 @@ const emptyFilters = { q: '', startDate: '', endDate: '' };
 const EstimateBillList = () => {
   const [customerList, setCustomerList] = useState([]);
   const [invoiceSetting, setInvoiceSetting] = useState(null);
+  // Hidden details per template — Master → Print templates.
+  const [printSettings, setPrintSettings] = useState(EMPTY_PRINT_SETTINGS);
+  useEffect(() => { getPrintSettings().then(setPrintSettings).catch(() => {}); }, []);
 
   const [bills, setBills] = useState([]);
   const [total, setTotal] = useState(0);
@@ -92,14 +96,15 @@ const EstimateBillList = () => {
   // Layout/styling lives in ./estimateBillTemplate.js — this just opens the window
   // synchronously (so popup blockers don't catch it) and fills it in once the
   // estimate HTML is built; the template's own onload triggers print.
-  const printBill = async (bill, size = 'A4') => {
-    const { width, height } = PAPER_WINDOW[size] || PAPER_WINDOW.A4;
+  // `size`: 'EA4' / 'EA5' (A4 / A5) or 'IN4' / 'IN3' (4 / 3 inch roll).
+  const printBill = async (bill, size = 'IN3') => {
+    const { width, height } = PAPER_WINDOW[size] || PAPER_WINDOW.IN3;
     const win = window.open('', '_blank', `width=${width},height=${height}`);
     if (!win) { alert('Please allow popups to print the estimate.'); return; }
     win.document.write('<p style="font-family:sans-serif;padding:20px;">Preparing estimate…</p>');
     try {
       const customerRecord = customerList.find((c) => c.name?.toLowerCase() === (bill.customer?.name || '').trim().toLowerCase());
-      const html = await buildEstimateDocumentHtml(bill, invoiceSetting || {}, customerRecord || null, size);
+      const html = await buildEstimateDocumentHtml(bill, invoiceSetting || {}, customerRecord || null, size, { show: showFor(printSettings, size) });
       win.document.open();
       win.document.write(html);
       win.document.close();
@@ -217,8 +222,10 @@ const EstimateBillList = () => {
               <div><span>Closing balance</span><strong>{money(viewBill.billDetails?.closingBalance)}</strong></div>
             </div>
             <div className="gst-view-actions">
-              <button type="button" onClick={() => printBill(viewBill, 'A4')}>Print A4</button>
-              <button type="button" onClick={() => printBill(viewBill, 'A5')}>Print A5</button>
+              <button type="button" onClick={() => printBill(viewBill, 'EA4')}>Print A4</button>
+              <button type="button" onClick={() => printBill(viewBill, 'EA5')}>Print A5</button>
+              <button type="button" onClick={() => printBill(viewBill, 'IN4')}>Print 4 inch</button>
+              <button type="button" onClick={() => printBill(viewBill, 'IN3')}>Print 3 inch</button>
               <button type="button" className="gst-delete-button" onClick={() => deleteBill(viewBill)}>Delete</button>
               <button type="button" onClick={() => setViewBill(null)}>Close</button>
             </div>

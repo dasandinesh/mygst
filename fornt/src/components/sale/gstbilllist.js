@@ -8,6 +8,7 @@ import { formatAddress, hasAddress } from '../common/shippingAddress';
 import { transportRows } from '../common/transportDetails';
 import { formatDate } from '../../dateFormat';
 import { getActiveSetting, getSeriesList, settingForBill } from '../../shopSettings';
+import { getPrintSettings, showFor, EMPTY_PRINT_SETTINGS } from '../../printSettings';
 
 const money = (value) => `₹${Number(value || 0).toFixed(2)}`;
 const displayDate = (value) => formatDate(value, '—');
@@ -22,6 +23,9 @@ const GstBillList = () => {
   const [customerList, setCustomerList] = useState([]);
   const [invoiceSetting, setInvoiceSetting] = useState(null);
   const [seriesList, setSeriesList] = useState([]); // only filled with 2+ bill series
+  // Hidden details per template — Master → Print templates.
+  const [printSettings, setPrintSettings] = useState(EMPTY_PRINT_SETTINGS);
+  useEffect(() => { getPrintSettings().then(setPrintSettings).catch(() => {}); }, []);
 
   const [bills, setBills] = useState([]);
   const [total, setTotal] = useState(0);
@@ -124,7 +128,7 @@ const GstBillList = () => {
       const customerRecord = customerList.find((c) => c.name?.toLowerCase() === (bill.customer?.name || '').trim().toLowerCase());
       // The bill's own series letterhead (logo fetched once, then reused).
       const shop = await settingForBill(bill).catch(() => invoiceSetting);
-      const html = await buildGstBillDocumentHtml(bill, shop || {}, customerRecord || null, size, { showHsnSummary: includeHsnSummary });
+      const html = await buildGstBillDocumentHtml(bill, shop || {}, customerRecord || null, size, { showHsnSummary: includeHsnSummary, show: showFor(printSettings, size) });
       win.document.open();
       win.document.write(html);
       win.document.close();

@@ -238,7 +238,11 @@ export const GST_STYLE = `
 // signatures) repeat on every page, each page is numbered "Page 1 of 2", and
 // the Total / amount in words / HSN summary print only at the bottom of the
 // last page.
-export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSummary = true, size = 'A4', pageCounts = null }) {
+// `show` is this template's details from Master → Print templates
+// (src/printSettings.js showFor); anything missing from it prints.
+export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSummary = true, size = 'A4', pageCounts = null, show: showSettings = {} }) {
+  const show = (key) => showSettings[key] !== false;
+  showHsnSummary = showHsnSummary && show('hsnSummary');
   const isIgst = bill.billDetails?.taxType === 'IGST';
   const items = bill.items || [];
   const b = bill.billDetails || {};
@@ -285,28 +289,27 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
   const taxRowsPage = lastPage > 0 && !pages[lastPage].length ? lastPage - 1 : lastPage;
 
   // Repeated at the top of every page.
+  const letterheadText = (
+    <div className="letterhead-text">
+      <div className="company-name">{shop.name || 'Tax Invoice'}</div>
+      {shop.header && show('headerNote') ? <div className="company-banner">{shop.header}</div> : null}
+      <div>{shopAddress}</div>
+      <div>
+        GSTIN/UIN: {shop.gstin || '—'} &nbsp; State Name : {shop.state || '—'}
+        {show('shopPhone') ? <> &nbsp; Contact : {shopPhones}</> : null}
+      </div>
+    </div>
+  );
   const header = (
     <>
       <div className="letterhead">
-        {shop.logo ? (
+        {shop.logo && show('logo') ? (
           <div className="letterhead-row">
             <img src={shop.logo} alt="" className="letterhead-logo" />
-            <div className="letterhead-text">
-              <div className="company-name">{shop.name || 'Tax Invoice'}</div>
-              {shop.header ? <div className="company-banner">{shop.header}</div> : null}
-              <div>{shopAddress}</div>
-              <div>GSTIN/UIN: {shop.gstin || '—'} &nbsp; State Name : {shop.state || '—'} &nbsp; Contact : {shopPhones}</div>
-            </div>
+            {letterheadText}
             <div className="letterhead-logo-spacer" aria-hidden="true" />
           </div>
-        ) : (
-          <div className="letterhead-text">
-            <div className="company-name">{shop.name || 'Tax Invoice'}</div>
-            {shop.header ? <div className="company-banner">{shop.header}</div> : null}
-            <div>{shopAddress}</div>
-            <div>GSTIN/UIN: {shop.gstin || '—'} &nbsp; State Name : {shop.state || '—'} &nbsp; Contact : {shopPhones}</div>
-          </div>
-        )}
+        ) : letterheadText}
       </div>
       <div className="title-bar">Tax Invoice</div>
 
@@ -319,19 +322,21 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
                 <div className="section-title">Buyer (Bill to)</div>
                 <div className="company-name">{bill.customer?.name || ''}</div>
                 <div>{customerAddress || '—'}</div>
-                <div>Phone : {customer?.phone || '—'}</div>
+                {show('buyerPhone') ? <div>Phone : {customer?.phone || '—'}</div> : null}
                 <div>GSTIN/UIN : {bill.customer?.gstin || '—'}</div>
               </td>
             </tr>
-            <tr>
-              <td>
-                <div className="section-title">Ship to:</div>
-                <div className="company-name">{shipTo.name}</div>
-                <div>{shipTo.address || '—'}</div>
-                <div>Phone : {shipTo.phone || '—'}</div>
-                <div>GSTIN/UIN : {shipTo.gstin || '—'}</div>
-              </td>
-            </tr>
+            {show('shipTo') ? (
+              <tr>
+                <td>
+                  <div className="section-title">Ship to:</div>
+                  <div className="company-name">{shipTo.name}</div>
+                  <div>{shipTo.address || '—'}</div>
+                  {show('buyerPhone') ? <div>Phone : {shipTo.phone || '—'}</div> : null}
+                  <div>GSTIN/UIN : {shipTo.gstin || '—'}</div>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
         <table className="detail-table">
@@ -340,30 +345,30 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
               <td className="kv"><b>Invoice No:</b> <br></br> {b.invoiceNumber || ''}</td>
               <td className="kv"><b>Dated:</b> <br></br> {formatDate(b.date)}</td>
             </tr>
-            {b.deliveryChallanNumber ? (
+            {b.deliveryChallanNumber && show('references') ? (
               <tr>
                 <td className="kv"><b>DC No:</b> <br></br>{b.deliveryChallanNumber}</td>
                 <td className="kv"><b>DC Date:</b><br></br> {formatDate(b.deliveryChallanDate) || '—'}</td>
               </tr>
             ) : null}
-            {b.purchaseOrderNumber ? (
+            {b.purchaseOrderNumber && show('references') ? (
               <tr>
                 <td className="kv"><b>Buyer's PO No:</b> <br></br>{b.purchaseOrderNumber}</td>
                 <td className="kv"><b>PO Date:</b><br></br> {formatDate(b.purchaseOrderDate) || '—'}</td>
               </tr>
             ) : null}
             {/* Transport: printed only when a vehicle number or transporter ID is filled in. */}
-            {b.transport?.vehicleNumber || b.transport?.transporterId ? (
+            {(b.transport?.vehicleNumber || b.transport?.transporterId) && show('transport') ? (
               <tr>
                 <td className="kv"><b>Vehicle No:</b> <br></br>{b.transport.vehicleNumber || '—'}</td>
                 <td className="kv"><b>Transporter ID:</b><br></br> {b.transport.transporterId || '—'}</td>
               </tr>
             ) : null}
             <tr>
-              <td className="kv"><b>PoS:</b> <br></br>{b.placeOfSupply || '—'}</td>
-              <td className="kv"><b>Tax Type:</b> <br></br>{isIgst ? 'IGST (Inter-state)' : 'CGST + SGST (Intra-state)'}</td>
+              <td className="kv" colSpan={show('taxType') ? 1 : 2}><b>PoS:</b> <br></br>{b.placeOfSupply || '—'}</td>
+              {show('taxType') ? <td className="kv"><b>Tax Type:</b> <br></br>{isIgst ? 'IGST (Inter-state)' : 'CGST + SGST (Intra-state)'}</td> : null}
             </tr>
-            {b.notes ? (
+            {b.notes && show('remark') ? (
               <tr>
                 <td className="kv" colSpan="2"><b>Remark:</b> {b.notes}</td>
               </tr>
@@ -375,20 +380,31 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
   );
 
   // Repeated at the bottom of every page.
+  const showLeftFooter = show('declaration') || show('customerSign');
   const footer = (
     <table className="layout-table header-style">
       <tbody>
         <tr>
-          <td>
-            <div className="decl-box">
-              <strong>Declaration</strong><br />
-              <div>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
-               <br></br>
-               <br></br>
-              <br></br>
-              <div className="sign-line">Customer Signature</div>
-            </div>
-          </td>
+          {showLeftFooter ? (
+            <td>
+              <div className="decl-box">
+                {show('declaration') ? (
+                  <>
+                    <strong>Declaration</strong><br />
+                    <div>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+                  </>
+                ) : null}
+                {show('customerSign') ? (
+                  <>
+                    <br></br>
+                    <br></br>
+                    <br></br>
+                    <div className="sign-line">Customer Signature</div>
+                  </>
+                ) : null}
+              </div>
+            </td>
+          ) : null}
 
           <td>
             <div className="decl-box right">
@@ -407,6 +423,10 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
     </table>
   );
 
+  // Items table columns: Sl, Description, HSN, Quantity, Rate, [per], Amount.
+  const showUnit = show('unitColumn');
+  const labelSpan = showUnit ? 6 : 5;
+
   return (
     <>
       {pages.map((pageItems, pageIndex) => {
@@ -418,32 +438,32 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
             {/* Items Table */}
             <table className="items-table">
               <thead>
-                <tr><th>Sl<br />No.</th><th>Description of Goods</th><th>HSN/<br />SAC</th><th>Quantity</th><th>Rate</th><th>per</th><th>Amount</th></tr>
+                <tr><th>Sl<br />No.</th><th>Description of Goods</th><th>HSN/<br />SAC</th><th>Quantity</th><th>Rate</th>{showUnit ? <th>per</th> : null}<th>Amount</th></tr>
               </thead>
               <tbody>
                 {pageItems.map((p) => (
                   <tr key={p.slNo} className="item-row">
                     <td className="c">{p.slNo}</td><td className="l">{p.name}</td><td className="c">{p.hsnCode || '—'}</td><td className="c">{p.quantity} {p.unit || ''}</td>
-                    <td>{money(p.rate)}</td><td className="c">{p.unit || ''}</td><td>{money(p.taxableValue)}</td>
+                    <td>{money(p.rate)}</td>{showUnit ? <td className="c">{p.unit || ''}</td> : null}<td>{money(p.taxableValue)}</td>
                   </tr>
                 ))}
                 {/* Tax rows right under the last item. */}
                 {pageIndex !== taxRowsPage ? null : isIgst
-                  ? (Number(b.totalIgst) ? <tr className="tax-summary-row tax-rows"><td colSpan="6" className="c tax-label">OUTPUT IGST</td><td>{money(b.totalIgst)}</td></tr> : null)
+                  ? (Number(b.totalIgst) ? <tr className="tax-summary-row tax-rows"><td colSpan={labelSpan} className="c tax-label">OUTPUT IGST</td><td>{money(b.totalIgst)}</td></tr> : null)
                   : (
                     <>
-                      {Number(b.totalCgst) ? <tr className="tax-rows"><td colSpan="6" className="l">Sub Total</td><td>{money(b.totalTaxableValue)}</td></tr> : null}
-                      {Number(b.totalCgst) ? <tr className="tax-summary-row tax-rows"><td colSpan="6" className="c tax-label">OUTPUT CGST</td><td>{money(b.totalCgst)}</td></tr> : null}
-                      {Number(b.totalSgst) ? <tr className="tax-summary-row tax-rows"><td colSpan="6" className="c tax-label">OUTPUT SGST</td><td>{money(b.totalSgst)}</td></tr> : null}
-                      {b.roundOff ? <tr className="tax-rows"><td colSpan="6" className="l">Round Off</td><td>{money(b.roundOff)}</td></tr> : null}
+                      {Number(b.totalCgst) ? <tr className="tax-rows"><td colSpan={labelSpan} className="l">Sub Total</td><td>{money(b.totalTaxableValue)}</td></tr> : null}
+                      {Number(b.totalCgst) ? <tr className="tax-summary-row tax-rows"><td colSpan={labelSpan} className="c tax-label">OUTPUT CGST</td><td>{money(b.totalCgst)}</td></tr> : null}
+                      {Number(b.totalSgst) ? <tr className="tax-summary-row tax-rows"><td colSpan={labelSpan} className="c tax-label">OUTPUT SGST</td><td>{money(b.totalSgst)}</td></tr> : null}
+                      {b.roundOff ? <tr className="tax-rows"><td colSpan={labelSpan} className="l">Round Off</td><td>{money(b.roundOff)}</td></tr> : null}
                     </>
                   )}
-                <tr className="spacer-row"><td colSpan="7"></td></tr>
+                <tr className="spacer-row"><td colSpan={labelSpan + 1}></td></tr>
               </tbody>
               {/* Total only on the last page, at its bottom. */}
               {isLastPage ? (
                 <tfoot className="last-only">
-                  <tr className="total-row"><td colSpan="3" className="l">Total</td><td className="c">{totalQty} {items[0]?.unit || ''}</td><td></td><td></td><td>{money(b.grandTotal)}</td></tr>
+                  <tr className="total-row"><td colSpan="3" className="l">Total</td><td className="c">{totalQty} {items[0]?.unit || ''}</td><td></td>{showUnit ? <td></td> : null}<td>{money(b.grandTotal)}</td></tr>
                 </tfoot>
               ) : null}
             </table>
@@ -451,14 +471,16 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
             {isLastPage ? (
               <>
                 {/* Totals Summary */}
-                <table className="layout-table words-table last-only">
-                  <tbody>
-                    <tr>
-                      <td colSpan="2" className="words-label">Amount Chargeable (in words)</td>
-                    </tr>
-                    <tr><td colSpan="2" className="words-value">Indian Rupee {numberToWordsIndian(b.grandTotal)} Only</td></tr>
-                  </tbody>
-                </table>
+                {show('amountInWords') ? (
+                  <table className="layout-table words-table last-only">
+                    <tbody>
+                      <tr>
+                        <td colSpan="2" className="words-label">Amount Chargeable (in words)</td>
+                      </tr>
+                      <tr><td colSpan="2" className="words-value">Indian Rupee {numberToWordsIndian(b.grandTotal)} Only</td></tr>
+                    </tbody>
+                  </table>
+                ) : null}
 
                 {showHsnSummary ? (
                   <>
@@ -495,7 +517,7 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
                         )}
                       </tfoot>
                     </table>
-                    <p className="tax-words last-only">Tax Amount (in words) : <strong>Indian Rupee {numberToWordsIndian(b.totalGst)} Only</strong></p>
+                    {show('taxInWords') ? <p className="tax-words last-only">Tax Amount (in words) : <strong>Indian Rupee {numberToWordsIndian(b.totalGst)} Only</strong></p> : null}
                   </>
                 ) : null}
               </>
@@ -506,10 +528,12 @@ export function GstBillDocument({ bill, shop = {}, customer = null, showHsnSumma
             {/* <div className="thankyou">{shop.fooder || 'Thank you for shopping with us!'}</div> */}
             {/* <div className="footnote">This is a Computer Generated Invoice</div> */}
 
-            <div className="page-number">
-              <span className="continued">{isLastPage ? '' : 'Continued on next page…'}</span>
-              <span>Page {pageIndex + 1} of {pages.length}</span>
-            </div>
+            {show('pageNumber') ? (
+              <div className="page-number">
+                <span className="continued">{isLastPage ? '' : 'Continued on next page…'}</span>
+                <span>Page {pageIndex + 1} of {pages.length}</span>
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -529,6 +553,7 @@ export const buildGstBillDocumentHtml = async (bill, shop = {}, customer = null,
   const paperClass = size === 'A5' ? 'paper-a5' : 'paper-a4';
   const invoiceNumber = bill.billDetails?.invoiceNumber || '';
   const showHsnSummary = options.showHsnSummary !== false;
+  const show = options.show || {};
   const render = (pageCounts, extraStyle = '', script = '') => `<!doctype html>
 <html>
 <head>
@@ -538,7 +563,7 @@ export const buildGstBillDocumentHtml = async (bill, shop = {}, customer = null,
 </head>
 <body class="${paperClass}">
   ${ReactDOMServer.renderToStaticMarkup(
-    <GstBillDocument bill={bill} shop={shop} customer={customer} showHsnSummary={showHsnSummary} size={size} pageCounts={pageCounts} />
+    <GstBillDocument bill={bill} shop={shop} customer={customer} showHsnSummary={showHsnSummary} size={size} pageCounts={pageCounts} show={show} />
   )}
   ${script}
 </body>
@@ -548,5 +573,6 @@ export const buildGstBillDocumentHtml = async (bill, shop = {}, customer = null,
   // Probe: every item on one page, at natural height (no stretching to fill the page).
   const probeHtml = render([(bill.items || []).length], '.gst-invoice { min-height: 0 !important; }');
   const pageCounts = await measurePageCounts(probeHtml, size);
-  return render(pageCounts, '', '<script>window.onload = function () { window.print(); };</script>');
+  // options.preview: for the Print templates screen — no print dialog.
+  return render(pageCounts, '', options.preview ? '' : '<script>window.onload = function () { window.print(); };</script>');
 };

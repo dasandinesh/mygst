@@ -11,4 +11,8 @@ router.get('/', preferenceController.getPreferences);
 // Save them (business owner only)
 router.put('/', preferenceController.updatePreferences);
 
+// Print templates: default A4/A5 (GST) and 3/4 inch (estimate), hidden details per template
+router.get('/print', preferenceController.getPrintSettings);
+router.put('/print', preferenceController.updatePrintSettings);
+
 module.exports = router;

@@ -41,6 +41,7 @@ import ProductDetails from './components/product/productdetails';
 import OrderList from './components/order/orderlist';
 import InvoiceSetting from './components/invoice/invoicesetting';
 import EntryPreferences from './components/preferences/entrypreferences';
+import PrintTemplates from './components/preferences/printtemplates';
 import ChartOfAccounts from './components/books/chartofaccounts';
 import TrialBalance from './components/books/trialbalance';
 import AccountLedger from './components/books/accountledger';
@@ -154,6 +155,7 @@ function App() {
                 <Route path="/price-update" element={<Price />} />
                 <Route path="/invoice-setting" element={<InvoiceSetting />} />
                 <Route path="/entry-settings" element={<EntryPreferences />} />
+                <Route path="/print-templates" element={<PrintTemplates />} />
                 <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
                 <Route path="/trial-balance" element={<TrialBalance />} />
                 <Route path="/account-ledger" element={<AccountLedger />} />

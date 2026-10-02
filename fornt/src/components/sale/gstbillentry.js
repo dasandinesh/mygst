@@ -12,6 +12,7 @@ import usePreferences from '../common/usePreferences';
 import { useEntryShortcuts, ShortcutHint } from '../common/entryShortcuts';
 import { formatDate } from '../../dateFormat';
 import { getActiveSetting, getSeriesList, settingForBill } from '../../shopSettings';
+import { getPrintSettings, showFor, EMPTY_PRINT_SETTINGS } from '../../printSettings';
 
 const todayString = () => {
   const now = new Date();
@@ -70,7 +71,7 @@ const SERIES_KEY = 'gstBill.seriesId';
 const readLastSeries = () => { try { return localStorage.getItem(SERIES_KEY) || ''; } catch { return ''; } };
 
 // Everything shown until the saved Entry Settings load (and if they can't).
-const defaultPrefs = { showBillList: true, showReferences: true, showTransport: true, showPayment: true, showRemark: true };
+const defaultPrefs = { showBillList: true, showReferences: true, showTransport: true, showPayment: true, showRemark: true, showSeries: true, showTaxType: true };
 
 const GstBillEntry = () => {
   const formRef = useRef(null);
@@ -86,6 +87,9 @@ const GstBillEntry = () => {
   const [customerList, setCustomerList] = useState([]);
   const [productList, setProductList] = useState([]);
   const [invoiceSetting, setInvoiceSetting] = useState(null);
+  // Default template (A4 / A5) and hidden details per template — Master → Print templates.
+  const [printSettings, setPrintSettings] = useState(EMPTY_PRINT_SETTINGS);
+  useEffect(() => { getPrintSettings().then(setPrintSettings).catch(() => {}); }, []);
   // Bill series (Invoice Settings → Advanced); empty for the usual single-series business.
   const [seriesList, setSeriesList] = useState([]);
   const [seriesId, setSeriesId] = useState(readLastSeries);
@@ -415,7 +419,8 @@ const GstBillEntry = () => {
       shippingAddress: shipping.source === 'billing' ? billingAsShipping(customerRecord) : shipping,
       items: lines,
       // seriesId only matters with 2+ bill series; the server uses the default otherwise.
-      billDetails: { ...billMeta, seriesId: seriesList.length > 1 ? activeSeriesId : undefined },
+      // With the Series box hidden (Entry Settings), bills go to the default series.
+      billDetails: { ...billMeta, seriesId: seriesList.length > 1 && prefs.showSeries ? activeSeriesId : undefined },
     };
     try {
       const saved = editingId
@@ -473,8 +478,10 @@ const GstBillEntry = () => {
   // the template's own onload triggers window.print().
   // `billOrLoader` is a bill, or an async function that fetches one (used by
   // "Print last bill", so the window still opens before the fetch).
-  const printBill = async (billOrLoader, size = 'A4') => {
-    const { width, height } = PAPER_WINDOW[size] || PAPER_WINDOW.A4;
+  // `size`: 'A4' / 'A5'; left out = the default template (Master → Print templates).
+  const printBill = async (billOrLoader, size) => {
+    const chosen = size || printSettings.gstDefault;
+    const { width, height } = PAPER_WINDOW[chosen] || PAPER_WINDOW.A4;
     const win = window.open('', '_blank', `width=${width},height=${height}`);
     if (!win) { alert('Please allow popups to print the bill.'); return; }
     win.document.write('<p style="font-family:sans-serif;padding:20px;">Preparing bill…</p>');
@@ -483,7 +490,8 @@ const GstBillEntry = () => {
       const customerRecord = customerList.find((c) => c.name?.toLowerCase() === (bill.customer?.name || '').trim().toLowerCase());
       // The bill's own series letterhead (logo fetched once, then reused).
       const shop = await settingForBill(bill).catch(() => invoiceSetting);
-      const html = await buildGstBillDocumentHtml(bill, shop || {}, customerRecord || null, size, { showHsnSummary: includeHsnSummary });
+      const show = showFor(printSettings, chosen);
+      const html = await buildGstBillDocumentHtml(bill, shop || {}, customerRecord || null, chosen, { showHsnSummary: includeHsnSummary, show });
       win.document.open();
       win.document.write(html);
       win.document.close();
@@ -506,7 +514,7 @@ const GstBillEntry = () => {
       setTimeout(() => customerNameRef.current?.focus(), 0);
     },
     onSave: () => { if (!viewBill && !showShipModal) formRef.current?.requestSubmit(); },
-    onPrint: () => printBill(viewBill || loadLastBill, 'A4'),
+    onPrint: () => printBill(viewBill || loadLastBill),
     onOpenLast: () => loadLastBill()
       .then((bill) => setViewBill(bill))
       .catch((error) => setSaveStatus({ type: 'error', text: error.message })),
@@ -519,8 +527,8 @@ const GstBillEntry = () => {
         <form className="gst-bill-form" ref={formRef} onSubmit={handleSave} noValidate>
           <fieldset>
             <legend>Bill details</legend>
-            <div className="gst-bill-header-row">
-              <div className="gst-input-field">
+            <div className="gst-bill-header-row gst-header-flex">
+              <div className="gst-input-field gst-hf-customer">
                 <label>Customer Name:</label><br />
                 <input
                   type="text"
@@ -536,9 +544,9 @@ const GstBillEntry = () => {
               </div>
               <datalist id="gst-customer-list">{customerList.map((c) => <option key={c._id} value={c.name} />)}</datalist>
 
-              <div className="gst-input-field textbox-middle"><label>GSTIN:</label><br /><input type="text" className="gst-text-input gst-compact-input" value={customer.gstin} onChange={(e) => setCustomer((c) => ({ ...c, gstin: e.target.value }))} /></div>
-              {seriesList.length > 1 && (
-                <div className="gst-input-field">
+              <div className="gst-input-field textbox-middle gst-hf-gstin"><label>GSTIN:</label><br /><input type="text" className="gst-text-input gst-compact-input" value={customer.gstin} onChange={(e) => setCustomer((c) => ({ ...c, gstin: e.target.value }))} /></div>
+              {seriesList.length > 1 && prefs.showSeries && (
+                <div className="gst-input-field gst-hf-series">
                   <label>Series:</label><br />
                   <select
                     className="gst-text-input"
@@ -553,14 +561,17 @@ const GstBillEntry = () => {
               )}
               <div className="gst-input-field gst-narrow"><label>Bill No:</label><br /><input type="text" className="gst-text-input gst-compact-input" placeholder="Auto" value={billMeta.invoiceNumber} onChange={(e) => setBillMeta((m) => ({ ...m, invoiceNumber: e.target.value }))} disabled={Boolean(editingId)} /></div>
               <div className="gst-input-field gst-narrow"><label>Bill Date:</label><br /><input type="date" className="gst-text-input gst-compact-input" value={billMeta.date} onChange={(e) => setBillMeta((m) => ({ ...m, date: e.target.value }))} /></div>
-              <div className="gst-input-field">
-                <label>Tax Type:</label><br />
-                <select className="gst-text-input" value={billMeta.taxType} onChange={(e) => setBillMeta((m) => ({ ...m, taxType: e.target.value }))}>
-                  <option value="CGST_SGST">CGST + SGST (intra-state)</option>
-                  <option value="IGST">IGST (inter-state)</option>
-                </select>
-              </div>
-              <div className="gst-input-field">
+              {/* Hidden (Entry Settings): still set automatically from the place of supply. */}
+              {prefs.showTaxType && (
+                <div className="gst-input-field gst-hf-taxtype">
+                  <label>Tax Type:</label><br />
+                  <select className="gst-text-input" value={billMeta.taxType} onChange={(e) => setBillMeta((m) => ({ ...m, taxType: e.target.value }))}>
+                    <option value="CGST_SGST">CGST + SGST (intra-state)</option>
+                    <option value="IGST">IGST (inter-state)</option>
+                  </select>
+                </div>
+              )}
+              <div className="gst-input-field gst-hf-pos">
                 <label>Place of Supply:</label><br />
                 <div className="pos-with-button">
                   <input type="text" className="gst-text-input" value={billMeta.placeOfSupply} onChange={(e) => setBillMeta((m) => ({ ...m, placeOfSupply: e.target.value }))} />
@@ -708,10 +719,13 @@ const GstBillEntry = () => {
             </table>
             <div className="gst-form-actions">
               <div className="gst-print-last" title={lastSavedBill ? `Print ${lastSavedBill.billDetails?.invoiceNumber || 'the bill just saved'}` : 'Print the newest saved bill'}>
-                <button type="button" className="gst-secondary-button" title="Ctrl+P" onClick={() => printBill(loadLastBill, 'A4')}>
+                <button type="button" className="gst-secondary-button" title={`Ctrl+P · ${printSettings.gstDefault} (default)`} onClick={() => printBill(loadLastBill)}>
                   🖨 Print last bill{lastSavedBill?.billDetails?.invoiceNumber ? ` (${lastSavedBill.billDetails.invoiceNumber})` : ''}
                 </button>
-                <button type="button" className="gst-secondary-button" onClick={() => printBill(loadLastBill, 'A5')}>A5</button>
+                {/* The other size, for a one-off print. */}
+                {printSettings.gstDefault === 'A5'
+                  ? <button type="button" className="gst-secondary-button" onClick={() => printBill(loadLastBill, 'A4')}>A4</button>
+                  : <button type="button" className="gst-secondary-button" onClick={() => printBill(loadLastBill, 'A5')}>A5</button>}
               </div>
               <button type="button" className="gst-secondary-button" title="F2 = new bill" onClick={resetForm}>{editingId ? 'Cancel edit' : 'Clear'}</button>
               <button type="submit" className="gst-primary-button" title="Ctrl+S">{editingId ? 'Update bill' : 'Save bill'}</button>
